@@ -1,99 +1,86 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './App.css';
-
-
+const fs = window.fs;
 
 const App = () => {
 
   const [files, setFiles] = useState([]);
-  const [regex, setRegex] = useState("(some)(.*)(text)");
-  const [testInput, setTestInput] = useState("some [fancy] text");
-  const [testOutput, setTestOutput] = useState("");
-  const [matches, setMatches] = useState([]);
-  const [replacements, setReplacements] = useState([]);
+  const [newFileNames, setNewFileNames] = useState([]);
 
-  const openFileDialog = () => {
-    console.log('click');
+  const [regex, setRegex] = useState(".*");
+  const [replace, setReplace] = useState("$&");
+
+  useEffect(() => {
+    processRegex();
+  }, [regex, replace, files]);
+
+  const processRegex = () => {
+    try {
+      let newNames = [];
+
+      files.forEach((file, i) => {
+        newNames[i] = file.name.replace(new RegExp(regex), replace);;
+      });
+
+      setNewFileNames(newNames);
+    } catch (e) { }
   }
 
   const filesChanged = (e) => {
-    debugger;
-    console.log(e.target.files);
     var fileList = [];
     for (let i = 0; i < e.target.files.length; i++) {
       fileList.push(e.target.files[i]);
     }
+
     setFiles(fileList);
   }
 
-  const handleInputChange = (value) => {
-    setRegex(value);
-    processRegex(value, testInput);
+  const applyRenaming = () => {
+    files.forEach((file, i) => {
+      const pathFolder = file.path.replace(file.name, "");
+      const sourceFile = file.path;
+      const newFile = pathFolder + newFileNames[i];
+
+      fs.rename(sourceFile, newFile, (err) => {
+        if(err) throw err;
+      });
+    });
   }
 
-  const handleTestInputChange = (value) => {
-    setTestInput(value);
-    processRegex(regex, value);
-  }
-
-  const processRegex = (regex, input) => {
-    try {
-      let output = new RegExp(`${regex}`).exec(input);
-      console.log(output);
-      setTestOutput(output);
-      setMatches(output);
-    } catch (e) { }
-  }
-
-  const handleReplaceTextChange = (value, index) => {
-    const newReplace = [...replacements];
-    newReplace[index] = value;
-    setReplacements(newReplace);
-  }
-  /*
-  \[(.*)\]
-  (some)(.*)(text)
-  
-  some [fancy] text
-  */
   return (
     <div className="App">
       <div>
-        <span>Regex:</span> <input type="text" value={regex} onChange={e => handleInputChange(e.target.value)} />
-        <ul>
-          {matches && matches.map((match, index) => {
-            return (<li key={index}>
-              <span>({index}) - {match} ({replacements[index]})</span>
-              <input type="text" value={replacements[index]} onChange={e => handleReplaceTextChange(e.target.value, index)} />
-            </li>);
-          })}
-        </ul>
+        <label>Regex:</label>
+        <input type="text" value={regex} onChange={e => setRegex(e.target.value)} />
       </div>
       <div>
-        <span>Test Input:</span> <input type="text" value={testInput} onChange={e => handleTestInputChange(e.target.value)} />
+        <label>Replace:</label>
+        <input type="text" value={replace} onChange={e => setReplace(e.target.value)} />
       </div>
       <div>
-        <span>Output:</span> <input type="text" value={testOutput} />
+        <input type="file" multiple onChange={filesChanged} />
       </div>
       <div>
-        <input type="file" multiple onClick={openFileDialog} onChange={filesChanged} />
         <table>
-          <table>
+          <thead>
             <tr>
               <th>#</th>
               <th>Original</th>
-              <th>Renamed</th>
+              <th>New Name</th>
             </tr>
-            {files.map((file, index) => {
-              return <tr>
-                      <td>{index}</td>
-                      <td>{file.name}</td>
-                      <td>{file.name}</td>
-                    </tr>
+          </thead>
+          <tbody>
+            {files.map((file, i) => {
+              return <tr key={i}>
+                <td>{i}</td>
+                <td>{file.name}</td>
+                <td>{newFileNames[i]}</td>
+              </tr>
             })}
-          </table>
+          </tbody>
         </table>
       </div>
+      <button onClick={applyRenaming}>Apply</button>
     </div>
   );
 }
